@@ -15,13 +15,13 @@ export const REQUIREMENT_CONFIG: RequirementConfig = {
       },
       ID_DOCUMENT: {
         label: "ID / Passport (image or PDF)",
-        required: true,
+        required: false,
         description: "Used to enrich identity details."
       },
-      ADDRESS_PROOF: {
-        label: "Proof of address (utility bill)",
-        required: false,
-        description: "Used to verify country and city of residence."
+      CREDIT_REPORT: {
+        label: "Credit report (PDF)",
+        required: true,
+        description: "Used to derive internal/external credit score, delinquencies, and overall risk profile."
       }
     },
     inputs: {

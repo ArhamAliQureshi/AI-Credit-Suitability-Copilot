@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CustomerProfile, FileData, Product, EvaluationResult } from '../types';
 import { DEMO_PRODUCTS, INITIAL_PROFILE, REQUIREMENT_CONFIG } from '../constants';
 import { extractProfileFromDocs, generateExplanations } from '../services/geminiService';
@@ -26,6 +26,8 @@ const AdvisorView: React.FC = () => {
   const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingText, setLoadingText] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
   
   // Data State
   const [manualData, setManualData] = useState<Partial<CustomerProfile>>({
@@ -108,34 +110,81 @@ const AdvisorView: React.FC = () => {
     }
 
     setLoading(true);
+    setError(null);
+    setProgress(0);
     setLoadingText("Extracting data from documents with Gemini...");
+
+    // Simulated progress for extraction phase (since we don't know exact duration)
+    // We cap it at 60% until extraction actually finishes
+    const progressInterval = setInterval(() => {
+        setProgress(prev => {
+            if (prev >= 60) return prev;
+            return prev + 2; // slowly increment
+        });
+    }, 500);
+
     try {
       // 1. Extract
       const extractedProfile = await extractProfileFromDocs(files, manualData);
+      
+      // Extraction done, jump to 60%
+      clearInterval(progressInterval);
+      setProgress(60);
       setProfile(extractedProfile);
       
       // 2. Evaluate
-      setLoadingText("Running risk engine & generating explanations...");
+      setLoadingText("Running risk engine...");
       const relevantProducts = DEMO_PRODUCTS.filter(p => 
         p.targetCustomerType === "BOTH" || p.targetCustomerType === extractedProfile.customerType
       );
       
       const initialEvals = relevantProducts.map(p => evaluateProductForProfile(extractedProfile, p));
       setEvaluations(initialEvals); // Show initial deterministic results fast
+      setProgress(70);
       
       // 3. Generate Explanations in parallel (Update state as they come in)
+      setLoadingText("Generating AI explanations...");
+      
+      const totalItems = initialEvals.length;
+      let completedItems = 0;
+
       const fullEvals = await Promise.all(initialEvals.map(async (ev) => {
         const product = relevantProducts.find(p => p.id === ev.productId)!;
         const explanations = await generateExplanations(extractedProfile, product, ev);
+        
+        // Update progress for each completion
+        completedItems++;
+        const currentProgressBase = 70;
+        const remainingPercentage = 30;
+        const addedProgress = (completedItems / totalItems) * remainingPercentage;
+        
+        setProgress(Math.min(currentProgressBase + addedProgress, 99));
+
         return { ...ev, customerExplanation: explanations.customer, advisorExplanation: explanations.advisor };
       }));
       
       setEvaluations(fullEvals);
-      setStep(3);
-    } catch (err) {
-      alert("Analysis failed. Please try again.");
+      setProgress(100);
+      
+      // Short delay to show 100% completion before switching view
+      setTimeout(() => {
+          setStep(3);
+      }, 600);
+      
+    } catch (err: any) {
+      clearInterval(progressInterval);
       console.error(err);
+      let msg = "Analysis failed. Please try again.";
+      if (err instanceof Error) {
+          msg = err.message;
+          // Clean up common Gemini error messages for display
+          if (msg.includes("API key")) msg = "Invalid or missing API Key.";
+          if (msg.includes("400")) msg = "Bad Request: The AI could not process these documents.";
+          if (msg.includes("500")) msg = "Server Error: Gemini is currently experiencing issues.";
+      }
+      setError(msg);
     } finally {
+      if (progressInterval) clearInterval(progressInterval);
       setLoading(false);
     }
   };
@@ -336,26 +385,58 @@ const AdvisorView: React.FC = () => {
           
           {renderDocumentSection()}
           
-          <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
-             <button 
-              onClick={() => setStep(1)}
-              className="text-slate-500 hover:text-slate-700 px-4 py-2"
-            >
-              Back
-            </button>
-            <button 
-              onClick={handleAnalyze}
-              disabled={loading}
-              className={`bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center transition-all ${
-                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-700'
-              }`}
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {loadingText}</>
-              ) : (
-                <>Run AI Analysis <ArrowRight className="w-4 h-4 ml-2" /></>
-              )}
-            </button>
+          {/* Progress Bar & Error Display Area */}
+          <div className="mt-8 pt-4 border-t border-slate-100">
+            {loading && (
+              <div className="mb-4 space-y-2">
+                 <div className="flex justify-between text-xs font-medium text-slate-600">
+                    <span className="flex items-center gap-2">
+                       <Loader2 className="w-3 h-3 animate-spin" />
+                       {loadingText}
+                    </span>
+                    <span>{Math.round(progress)}%</span>
+                 </div>
+                 <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div 
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                        style={{ width: `${progress}%` }}
+                    />
+                 </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-3 text-rose-800 text-sm animate-fade-in">
+                 <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+                 <div>
+                    <strong className="block font-semibold text-rose-900 mb-1">Analysis Failed</strong>
+                    <p>{error}</p>
+                 </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setStep(1)}
+                disabled={loading}
+                className="text-slate-500 hover:text-slate-700 px-4 py-2 disabled:opacity-50"
+              >
+                Back
+              </button>
+              <button 
+                onClick={handleAnalyze}
+                disabled={loading}
+                className={`bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center transition-all ${
+                  loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-700'
+                }`}
+              >
+                {loading ? (
+                  "Analyzing..."
+                ) : (
+                  <>Run AI Analysis <ArrowRight className="w-4 h-4 ml-2" /></>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -490,7 +571,7 @@ const AdvisorView: React.FC = () => {
           </div>
           
           <button 
-              onClick={() => { setStep(1); setFiles([]); setProfile(INITIAL_PROFILE); setEvaluations([]); setValidationErrors({}); }}
+              onClick={() => { setStep(1); setFiles([]); setProfile(INITIAL_PROFILE); setEvaluations([]); setValidationErrors({}); setProgress(0); setError(null); }}
               className="mt-8 text-indigo-600 text-sm font-medium hover:underline"
             >
               Start New Assessment

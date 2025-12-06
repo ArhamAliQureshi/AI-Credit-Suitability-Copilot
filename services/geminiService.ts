@@ -48,7 +48,7 @@ export async function extractProfileFromDocs(
   const fileContexts = files.map(f => `File Name: ${f.name}, Document Type: ${f.docType || "UNKNOWN"}`).join("\n");
 
   const promptText = `
-    You are an expert financial analyst. Analyze the provided documents (bank statements, payslips, invoices) and the manual user inputs below.
+    You are an expert financial analyst. Analyze the provided documents (bank statements, payslips, credit reports) and the manual user inputs below.
     
     Attached Files Context:
     ${fileContexts}
@@ -57,6 +57,7 @@ export async function extractProfileFromDocs(
     - BANK_STATEMENT: Extract monthly income, recurring expenses, existing loan EMIs. Look for patterns of bounced cheques or gambling. Estimate DTI.
     - PAYSLIP: Confirm net salary and employment stability.
     - ID_DOCUMENT: Extract full name, age/DOB, citizenship.
+    - CREDIT_REPORT: Extract credit score, total debt, credit utilization, repayment history, and any delinquencies or negative marks.
     - TRADE_LICENSE: Extract business start date (to calculate businessAgeMonths) and legal business name.
     - PANDL_SUMMARY: Extract average monthly revenue and net profit.
     - SALES_DASHBOARD: Use to corroborate revenue stability and seasonality.
@@ -74,7 +75,7 @@ export async function extractProfileFromDocs(
     2. Calculate derived metrics like Debt-to-Income (DTI) and DSCR where possible if not explicitly stated.
        - DTI = Total Monthly Debt Payments / Gross Monthly Income
        - DSCR = Net Operating Income / Total Debt Service
-    3. Identify risk flags (e.g., "High Overdraft Usage", "Declining Revenue", "Gambling Transactions").
+    3. Identify risk flags (e.g., "High Overdraft Usage", "Declining Revenue", "Gambling Transactions", "Delinquencies").
     4. Return a SINGLE JSON object matching the CustomerProfile schema.
     5. If a value is missing and cannot be reasonably estimated, use null.
     6. For 'notes', write a brief professional summary of the financial situation (2-3 sentences).
