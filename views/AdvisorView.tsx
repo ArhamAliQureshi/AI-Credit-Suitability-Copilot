@@ -45,9 +45,29 @@ const AdvisorView: React.FC = () => {
   const loadingText = progress < 60 ? "Extracting data from documents with Gemini..." : 
                      progress < 70 ? "Running risk engine..." : "Generating AI explanations...";
 
+  // Dynamic Label Config based on Customer Type
+  const customerType = manualData.customerType || "INDIVIDUAL";
+  const fieldConfig = customerType === 'SME' ? {
+    title: "Business Basics",
+    nameLabel: "Business Name",
+    namePlaceholder: "e.g. Bright Bean Cafe WLL",
+    residenceLabel: "Country of Registration / Jurisdiction",
+    residencePlaceholder: "e.g. Bahrain",
+    citizenshipLabel: "Primary Operating Country / Region",
+    citizenshipPlaceholder: "e.g. GCC, Bahrain, UAE",
+  } : {
+    title: "Customer Basics",
+    nameLabel: "Name",
+    namePlaceholder: "e.g. John Doe",
+    residenceLabel: "Country of Residence",
+    residencePlaceholder: "e.g. United Kingdom",
+    citizenshipLabel: "Citizenship",
+    citizenshipPlaceholder: "e.g. United States",
+  };
+
   // Handlers
   const handleNextStep = () => {
-    const currentConfig = REQUIREMENT_CONFIG[manualData.customerType || "INDIVIDUAL"];
+    const currentConfig = REQUIREMENT_CONFIG[customerType];
     const inputs = currentConfig.inputs as Record<string, InputRequirement>;
     const errors: Record<string, boolean> = {};
     let hasError = false;
@@ -84,7 +104,7 @@ const AdvisorView: React.FC = () => {
   };
 
   const validateDocuments = () => {
-      const currentConfig = REQUIREMENT_CONFIG[manualData.customerType || "INDIVIDUAL"];
+      const currentConfig = REQUIREMENT_CONFIG[customerType];
       const documents = currentConfig.documents as Record<string, DocumentRequirement>;
       const errors: Record<string, boolean> = {};
       let hasError = false;
@@ -136,7 +156,7 @@ const AdvisorView: React.FC = () => {
   };
 
   const renderDocumentSection = () => {
-    const config = REQUIREMENT_CONFIG[manualData.customerType || "INDIVIDUAL"];
+    const config = REQUIREMENT_CONFIG[customerType];
     const documents = config.documents as Record<string, DocumentRequirement>;
     const entries = Object.entries(documents) as [string, DocumentRequirement][];
     const requiredDocs = entries.filter(([, req]) => req.required);
@@ -188,7 +208,7 @@ const AdvisorView: React.FC = () => {
     );
   };
 
-  const currentGoalOptions = GOAL_OPTIONS[manualData.customerType || "INDIVIDUAL"];
+  const currentGoalOptions = GOAL_OPTIONS[customerType];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -239,7 +259,7 @@ const AdvisorView: React.FC = () => {
       {step === 1 && (
         <div className="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-slate-900">Customer Basics</h2>
+            <h2 className="text-xl font-bold text-slate-900">{fieldConfig.title}</h2>
             {manualData.name && (
                 <button onClick={clearSession} className="text-xs text-slate-400 hover:text-rose-500 flex items-center gap-1">
                     <RotateCcw className="w-3 h-3" /> Reset
@@ -278,7 +298,7 @@ const AdvisorView: React.FC = () => {
             </div>
             <div>
                <label className="block text-sm font-medium text-slate-700 mb-1">
-                 Name <span className="text-rose-500">*</span>
+                 {fieldConfig.nameLabel} <span className="text-rose-500">*</span>
                </label>
                <input 
                  type="text" 
@@ -286,29 +306,29 @@ const AdvisorView: React.FC = () => {
                  className={`w-full rounded-lg border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:bg-slate-900 focus:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2 border transition-colors ${validationErrors['name'] ? 'border-rose-500 ring-1 ring-rose-500' : ''}`}
                  value={manualData.name || ""}
                  onChange={e => updateManualData({name: e.target.value})}
-                 placeholder="e.g. John Doe / Acme Corp"
+                 placeholder={fieldConfig.namePlaceholder}
                />
-               {validationErrors['name'] && <p className="text-xs text-rose-500 mt-1">Name is required.</p>}
+               {validationErrors['name'] && <p className="text-xs text-rose-500 mt-1">{fieldConfig.nameLabel} is required.</p>}
             </div>
              <div>
                <CountryAutocomplete 
-                 label="Citizenship" 
+                 label={fieldConfig.citizenshipLabel}
                  value={manualData.citizenship || ""} 
                  onChange={handleCitizenshipChange} 
-                 placeholder="e.g. United States"
-                 required={(REQUIREMENT_CONFIG[manualData.customerType || "INDIVIDUAL"].inputs as Record<string, InputRequirement>)['citizenship']?.required}
+                 placeholder={fieldConfig.citizenshipPlaceholder}
+                 required={(REQUIREMENT_CONFIG[customerType].inputs as Record<string, InputRequirement>)['citizenship']?.required}
                />
-               {validationErrors['citizenship'] && <p className="text-xs text-rose-500 mt-1">Citizenship is required.</p>}
+               {validationErrors['citizenship'] && <p className="text-xs text-rose-500 mt-1">{fieldConfig.citizenshipLabel} is required.</p>}
             </div>
             <div>
                <CountryAutocomplete 
-                 label="Country of Residence" 
+                 label={fieldConfig.residenceLabel}
                  value={manualData.countryOfResidence || ""} 
                  onChange={(val) => updateManualData({countryOfResidence: val})} 
-                 placeholder="e.g. United Kingdom"
-                 required={(REQUIREMENT_CONFIG[manualData.customerType || "INDIVIDUAL"].inputs as Record<string, InputRequirement>)['countryOfResidence']?.required}
+                 placeholder={fieldConfig.residencePlaceholder}
+                 required={(REQUIREMENT_CONFIG[customerType].inputs as Record<string, InputRequirement>)['countryOfResidence']?.required}
                />
-               {validationErrors['countryOfResidence'] && <p className="text-xs text-rose-500 mt-1">Country of Residence is required.</p>}
+               {validationErrors['countryOfResidence'] && <p className="text-xs text-rose-500 mt-1">{fieldConfig.residenceLabel} is required.</p>}
             </div>
           </div>
           <div className="mt-8 flex justify-end">

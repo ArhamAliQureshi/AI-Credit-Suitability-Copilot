@@ -58,7 +58,8 @@ export const REQUIREMENT_CONFIG: RequirementConfig = {
     inputs: {
       name: { required: true }, // Business Name
       goal: { required: true },
-      countryOfResidence: { required: true } // Jurisdiction
+      countryOfResidence: { required: true }, // Jurisdiction
+      citizenship: { required: true } // Primary Operating Country
     }
   }
 };
