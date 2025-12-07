@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { CustomerProfile, FileData, EvaluationResult, Product } from '../types';
 import { INITIAL_PROFILE, DEMO_PRODUCTS } from '../constants';
-import { extractProfileFromDocs, generateExplanations } from '../services/geminiService';
+import { extractProfileFromDocs, generateExplanations, validateDocuments } from '../services/geminiService';
 import { evaluateProductForProfile } from '../services/riskEngine';
 
 interface SuitabilityState {
@@ -143,24 +144,53 @@ export const SuitabilityProvider: React.FC<{ children: ReactNode }> = ({ childre
          return;
       }
       setProgress(prev => {
-        if (prev >= 60) return prev;
-        return prev + 2;
+        // Validation (0-30), Extraction (30-60), Risk (60-70), Explanation (70-100)
+        // We let the ticker push it slowly, but specific steps will jump it.
+        if (prev >= 95) return prev;
+        return prev + 1;
       });
-    }, 500);
+    }, 400);
 
     try {
-      // 1. Extract Profile
+      // --- STEP 0: DOCUMENT VALIDATION ---
+      // We do this first to ensure data integrity
+      
+      const validationResult = await validateDocuments(files, manualData.customerType || "INDIVIDUAL", manualData.name || "");
+      
+      if (currentRunId.current !== runId) throw new Error("Cancelled");
+
+      const validationErrors: string[] = [];
+      validationResult.documentValidations.forEach(v => {
+        if (!v.nameMatchesDeclared || !v.typeMatchesSlot) {
+            // Aggregate issues
+            if (v.issues && v.issues.length > 0) {
+                validationErrors.push(...v.issues);
+            } else {
+                 // Fallback message if AI didn't provide specific issue text
+                 if (!v.nameMatchesDeclared) validationErrors.push(`Name mismatch in ${v.slotKey}: Expected '${manualData.name}', found '${v.detectedName}'.`);
+                 if (!v.typeMatchesSlot) validationErrors.push(`Type mismatch in ${v.slotKey}: Expected ${v.expectedDocType}, found ${v.detectedDocType}.`);
+            }
+        }
+      });
+
+      if (validationErrors.length > 0) {
+        throw new Error(`Document Validation Failed:\n• ${validationErrors.join("\n• ")}`);
+      }
+      
+      setProgress(30);
+
+      // --- STEP 1: EXTRACT PROFILE ---
       if (currentRunId.current !== runId) throw new Error("Cancelled");
       
       const extractedProfile = await extractProfileFromDocs(files, manualData);
       
       if (currentRunId.current !== runId) throw new Error("Cancelled");
       
-      clearInterval(progressInterval);
+      // clearInterval(progressInterval); // Keep ticker running for smoothness but jump
       setProgress(60);
       setProfile(extractedProfile);
 
-      // 2. Evaluate Logic
+      // --- STEP 2: EVALUATE LOGIC ---
       const relevantProducts = DEMO_PRODUCTS.filter(p => 
         p.targetCustomerType === "BOTH" || p.targetCustomerType === extractedProfile.customerType
       );
@@ -172,7 +202,7 @@ export const SuitabilityProvider: React.FC<{ children: ReactNode }> = ({ childre
       setEvaluations(initialEvals);
       setProgress(70);
 
-      // 3. Generate Explanations (Parallel)
+      // --- STEP 3: GENERATE EXPLANATIONS (PARALLEL) ---
       const totalItems = initialEvals.length;
       let completedItems = 0;
 
@@ -186,10 +216,10 @@ export const SuitabilityProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         completedItems++;
         const currentProgressBase = 70;
-        const remainingPercentage = 30;
+        const remainingPercentage = 25; // Leave 5% for final
         const addedProgress = (completedItems / totalItems) * remainingPercentage;
         
-        setProgress(Math.min(currentProgressBase + addedProgress, 99));
+        setProgress(Math.min(currentProgressBase + addedProgress, 95));
 
         return { ...ev, customerExplanation: explanations.customer, advisorExplanation: explanations.advisor };
       }));

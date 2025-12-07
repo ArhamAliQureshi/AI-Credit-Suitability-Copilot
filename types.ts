@@ -1,3 +1,4 @@
+
 export interface CustomerProfile {
   customerType: "INDIVIDUAL" | "SME";
   name: string | null;
@@ -96,3 +97,17 @@ export interface CustomerTypeConfig {
 }
 
 export type RequirementConfig = Record<"INDIVIDUAL" | "SME", CustomerTypeConfig>;
+
+export interface DocumentValidation {
+  slotKey: string;
+  expectedDocType: string;
+  detectedName: string | null;
+  detectedDocType: string | null;
+  nameMatchesDeclared: boolean;
+  typeMatchesSlot: boolean;
+  issues: string[];
+}
+
+export interface ValidationResponse {
+  documentValidations: DocumentValidation[];
+}
