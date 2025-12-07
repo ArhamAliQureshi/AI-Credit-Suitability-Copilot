@@ -217,14 +217,6 @@ const AdvisorView: React.FC = () => {
         </div>
       )}
       
-      {analysisStatus === 'success' && step === 3 && (Date.now() - lastActiveTimestamp > 5000) && (
-        <div className="flex justify-center mb-2">
-           <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2">
-             <Check className="w-3 h-3" /> Session restored from previous run
-           </span>
-        </div>
-      )}
-
       {/* Progress Steps */}
       <div className="flex items-center justify-center mb-8 px-4">
         <div className="flex items-center max-w-2xl w-full justify-between">
