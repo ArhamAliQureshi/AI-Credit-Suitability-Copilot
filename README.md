@@ -1,3 +1,4 @@
+https://www.kaggle.com/competitions/gemini-3
 Gemini FairLens: AI Credit Suitability Copilot
 
 Multimodal profiling and explainable product suitability for individuals and SMEs – built with Gemini 3 Pro for the Google DeepMind “Vibe Code with Gemini 3” hackathon.
